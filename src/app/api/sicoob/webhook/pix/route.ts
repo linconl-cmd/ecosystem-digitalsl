@@ -68,20 +68,26 @@ async function processarPix(txid: string) {
       .eq('id', contador.id)
   }
 
-  await enviarReciboPagamento({
-    email: usuario.email,
-    nomeCliente: usuario.nome,
-    nomeProduto: produto.name,
-    valorPago: pedido.valor_pago,
-    pedidoId: pedido.id,
-  })
-
-  if (certificado) {
-    await enviarLinkAgendamento({
+  // Pagamento e certificado já confirmados/criados — falha de e-mail não pode
+  // fazer o webhook retornar erro (a Sicoob reenviaria a notificação à toa)
+  try {
+    await enviarReciboPagamento({
       email: usuario.email,
       nomeCliente: usuario.nome,
-      certificadoId: certificado.id,
+      nomeProduto: produto.name,
+      valorPago: pedido.valor_pago,
+      pedidoId: pedido.id,
     })
+
+    if (certificado) {
+      await enviarLinkAgendamento({
+        email: usuario.email,
+        nomeCliente: usuario.nome,
+        certificadoId: certificado.id,
+      })
+    }
+  } catch (erro) {
+    console.error('Falha ao enviar e-mails de confirmação de pagamento:', erro)
   }
 }
 

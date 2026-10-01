@@ -136,19 +136,24 @@ export async function estornarEReemitir(params: {
     .update({ novo_txid: cobranca.txid })
     .eq('id', correcao.id)
 
-  // 8. E-mails ao cliente
-  await enviarComprovanteEstorno({
-    email: usuario.email,
-    nomeCliente: usuario.nome,
-    valorEstornado: pedido.valor_pago,
-    motivo,
-  })
+  // 8. E-mails ao cliente — a devolução e a nova cobrança já foram feitas no
+  // Sicoob; falha de e-mail aqui não pode desfazer nem travar o resultado
+  try {
+    await enviarComprovanteEstorno({
+      email: usuario.email,
+      nomeCliente: usuario.nome,
+      valorEstornado: pedido.valor_pago,
+      motivo,
+    })
 
-  await enviarNovaCobrancaPix({
-    email: usuario.email,
-    nomeCliente: usuario.nome,
-    pixCopiaECola: cobranca.pixCopiaECola,
-  })
+    await enviarNovaCobrancaPix({
+      email: usuario.email,
+      nomeCliente: usuario.nome,
+      pixCopiaECola: cobranca.pixCopiaECola,
+    })
+  } catch (erro) {
+    console.error('Falha ao enviar e-mails de estorno/nova cobrança:', erro)
+  }
 
   return {
     devolucaoId: devolucao.id,

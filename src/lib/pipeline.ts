@@ -54,12 +54,18 @@ export async function moverPipeline(params: {
         .single()
 
       if (usuario) {
-        await enviarNotificacaoEtapa({
-          email: usuario.email,
-          nomeCliente: usuario.nome,
-          etapaNome: etapa.nome,
-          observacao: observacao ?? undefined,
-        })
+        // Falha ao notificar não pode derrubar a movimentação do pedido —
+        // o pedido já mudou de etapa, isso é só um aviso best-effort
+        try {
+          await enviarNotificacaoEtapa({
+            email: usuario.email,
+            nomeCliente: usuario.nome,
+            etapaNome: etapa.nome,
+            observacao: observacao ?? undefined,
+          })
+        } catch (erro) {
+          console.error('Falha ao enviar notificação de etapa:', erro)
+        }
       }
     }
   }
