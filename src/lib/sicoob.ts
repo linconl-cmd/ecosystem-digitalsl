@@ -66,7 +66,10 @@ async function chamarApi(params: {
     method: params.method,
     agent: criarAgenteMtls(),
     headers: {
-      'Content-Type': 'application/json',
+      // Sem o "; charset=utf-8" explícito, a Sicoob rejeita toda escrita
+      // (POST/PUT) com um 500 genérico "Invalid request type" — confirmado
+      // testando direto contra a API de produção.
+      'Content-Type': 'application/json; charset=utf-8',
       Authorization: `Bearer ${token}`,
       client_id: process.env.SICOOB_CLIENT_ID!,
     },
