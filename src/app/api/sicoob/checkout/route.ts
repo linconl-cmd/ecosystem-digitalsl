@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createAdminClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-server'
 import { criarCobrancaPix } from '@/lib/sicoob'
 import { moverPipeline } from '@/lib/pipeline'
 import { criarCheckoutSchema } from '@/schemas'

@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-server'
 import { criarCobrancaPix, devolverPix } from '@/lib/sicoob'
 import { moverPipeline } from '@/lib/pipeline'
 import { calcularSplit } from '@/lib/utils'

@@ -1,12 +1,16 @@
 import { NextRequest } from 'next/server'
-import { createAdminClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-server'
 import { enviarPixTransferencia } from '@/lib/sicoob'
 import { criarRepasseSchema } from '@/schemas'
 import { erroApi, sucessoApi } from '@/lib/utils'
+import { exigirAdmin } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
+  const { erro } = await exigirAdmin()
+  if (erro) return erro
+
   const { searchParams } = request.nextUrl
   const contadorId = searchParams.get('contador_id')
 
@@ -27,6 +31,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const { usuario, erro } = await exigirAdmin()
+  if (erro) return erro
+
   const body: unknown = await request.json()
   const resultado = criarRepasseSchema.safeParse(body)
 
@@ -62,6 +69,7 @@ export async function POST(request: NextRequest) {
       contador_id: contador.id,
       valor: saldo,
       status: 'processando',
+      criado_por: usuario.id,
     })
     .select()
     .single()

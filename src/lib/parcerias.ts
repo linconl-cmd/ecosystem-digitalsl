@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { createAdminClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-server'
 import { enviarConviteParceria } from '@/lib/email'
 
 export async function criarConviteParceria(params: {

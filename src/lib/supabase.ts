@@ -1,38 +1,13 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createBrowserClient } from '@supabase/ssr'
 
+// Único export deste arquivo de propósito: tudo que usa next/headers (sessão
+// do servidor, admin client) fica em lib/supabase-server.ts. Misturar os dois
+// num arquivo só quebra o build sempre que um Client Component importar
+// qualquer coisa daqui — mesmo sem usar as funções de servidor, o bundler
+// barra o módulo inteiro por causa do import de next/headers.
 export function createClient() {
-  return createSupabaseClient(
+  return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
-export async function createServerSupabaseClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          for (const { name, value, options } of cookiesToSet) {
-            cookieStore.set(name, value, options)
-          }
-        },
-      },
-    }
-  )
-}
-
-export function createAdminClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 }

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createAdminClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-server'
 import { consultarCobrancaPix } from '@/lib/sicoob'
 import { registrarPagamentoConfirmado } from '@/lib/pipeline'
 import { enviarReciboPagamento, enviarLinkAgendamento } from '@/lib/email'

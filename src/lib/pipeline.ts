@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-server'
 import { enviarNotificacaoEtapa } from '@/lib/email'
 import type { EtapaCodigo } from '@/types'
 

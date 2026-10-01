@@ -1,6 +1,11 @@
 import { Resend } from 'resend'
 
-export const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy: o construtor do Resend lança erro na hora se a chave estiver vazia.
+// Criando só quando alguém de fato manda um e-mail, o build (e o app sem
+// RESEND_API_KEY configurada ainda) não quebra por causa disso.
+function obterResend() {
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 const from = process.env.EMAIL_FROM ?? 'contato@seudominio.com.br'
 const appName = process.env.NEXT_PUBLIC_APP_NAME ?? 'Digital Solutions'
@@ -15,7 +20,7 @@ export async function enviarReciboPagamento(params: {
 }) {
   const { email, nomeCliente, nomeProduto, valorPago, pedidoId } = params
 
-  await resend.emails.send({
+  await obterResend().emails.send({
     from: `${appName} <${from}>`,
     to: email,
     subject: `Recibo de pagamento - Pedido #${pedidoId.slice(0, 8)}`,
@@ -40,7 +45,7 @@ export async function enviarLinkAgendamento(params: {
   const { email, nomeCliente, certificadoId } = params
   const link = `${appUrl}/agendamento?certificado=${certificadoId}`
 
-  await resend.emails.send({
+  await obterResend().emails.send({
     from: `${appName} <${from}>`,
     to: email,
     subject: 'Agende a emissão do seu certificado digital',
@@ -61,7 +66,7 @@ export async function enviarConfirmacaoAgendamento(params: {
 }) {
   const { email, nomeCliente, dataHora } = params
 
-  await resend.emails.send({
+  await obterResend().emails.send({
     from: `${appName} <${from}>`,
     to: email,
     subject: 'Agendamento confirmado',
@@ -81,7 +86,7 @@ export async function enviarComprovanteEstorno(params: {
 }) {
   const { email, nomeCliente, valorEstornado, motivo } = params
 
-  await resend.emails.send({
+  await obterResend().emails.send({
     from: `${appName} <${from}>`,
     to: email,
     subject: 'Comprovante de estorno',
@@ -101,7 +106,7 @@ export async function enviarNovaCobrancaPix(params: {
 }) {
   const { email, nomeCliente, pixCopiaECola } = params
 
-  await resend.emails.send({
+  await obterResend().emails.send({
     from: `${appName} <${from}>`,
     to: email,
     subject: 'Nova cobrança Pix',
@@ -122,7 +127,7 @@ export async function enviarConviteParceria(params: {
   const { email, nomeContador, token } = params
   const link = `${appUrl}/parceria/assinar?token=${token}`
 
-  await resend.emails.send({
+  await obterResend().emails.send({
     from: `${appName} <${from}>`,
     to: email,
     subject: `Convite de parceria - ${appName}`,
@@ -145,7 +150,7 @@ export async function enviarNotificacaoEtapa(params: {
 }) {
   const { email, nomeCliente, etapaNome, observacao } = params
 
-  await resend.emails.send({
+  await obterResend().emails.send({
     from: `${appName} <${from}>`,
     to: email,
     subject: `Atualização do seu pedido - ${etapaNome}`,
