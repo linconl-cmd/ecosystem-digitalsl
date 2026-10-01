@@ -1,13 +1,18 @@
 import https from 'node:https'
 import { randomUUID } from 'node:crypto'
 
-// ATENÇÃO: endpoints e payloads reconstruídos a partir da documentação pública
-// da Sicoob (developers.sicoob.com.br) e do padrão Bacen da API Pix. Validar
-// contra o sandbox real antes de usar em produção — path base, escopos e o
-// endpoint de transferência (repasse) podem divergir.
+// Cobrança (cob) e devolução testadas e confirmadas contra a Sicoob de
+// verdade (mTLS com certificado real) e contra o sandbox deles
+// (sandbox.sicoob.com.br/sicoob/sandbox, dados mockados). A transferência
+// Pix avulsa (repasse de comissão) foi confirmada só no sandbox — a conta
+// real ainda não tem a API de Pagamentos habilitada, então o corpo exato da
+// requisição (nomes de campo) não foi validado contra produção.
 const SICOOB_AUTH_URL = 'https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token'
 const SICOOB_API_URL = 'https://api.sicoob.com.br'
 const SICOOB_PIX_URL = `${SICOOB_API_URL}/pix/api/v2`
+// Confirmado no sandbox (sandbox.sicoob.com.br/sicoob/sandbox) — path e
+// response shape diferentes do que a doc pública sugeria
+const SICOOB_PIX_PAGAMENTOS_URL = `${SICOOB_API_URL}/pix-pagamentos/v2`
 
 function criarAgenteMtls(): https.Agent {
   return new https.Agent({
@@ -112,8 +117,11 @@ export async function criarCobrancaPix(params: {
     },
   })
 
-  const dados = JSON.parse(corpo) as { txid: string; pixCopiaECola: string }
-  return { txid: dados.txid, pixCopiaECola: dados.pixCopiaECola }
+  // O campo do código copia-e-cola na resposta da Sicoob é "brcode", não
+  // "pixCopiaECola" como outros bancos costumam chamar — confirmado testando
+  // o sandbox deles (sicoob.com.br/sicoob/sandbox).
+  const dados = JSON.parse(corpo) as { txid: string; brcode: string }
+  return { txid: dados.txid, pixCopiaECola: dados.brcode }
 }
 
 // O webhook não é confiável por si só (o padrão Pix não assina o payload), então
@@ -168,7 +176,7 @@ export async function enviarPixTransferencia(params: {
   const { chavePix, valor, identificador } = params
 
   const corpo = await chamarApi({
-    url: `${SICOOB_API_URL}/pagamentos/v3/pix`,
+    url: `${SICOOB_PIX_PAGAMENTOS_URL}/pagamentos`,
     method: 'POST',
     scope: 'cco_transferencias.write pagamentos_pix.write',
     body: {
@@ -178,6 +186,6 @@ export async function enviarPixTransferencia(params: {
     },
   })
 
-  const dados = JSON.parse(corpo) as { e2eId?: string; transacaoId?: string }
-  return { transacaoId: dados.e2eId ?? dados.transacaoId ?? identificador }
+  const dados = JSON.parse(corpo) as { endToEndId?: string }
+  return { transacaoId: dados.endToEndId ?? identificador }
 }
