@@ -7,7 +7,7 @@
 -- TABELA: modelos_contrato
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS modelos_contrato (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome TEXT NOT NULL,
   versao INTEGER NOT NULL DEFAULT 1,
   conteudo TEXT NOT NULL,
@@ -21,16 +21,14 @@ ALTER TABLE modelos_contrato ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins podem gerenciar modelos de contrato"
   ON modelos_contrato FOR ALL
   USING (
-    EXISTS (
-      SELECT 1 FROM usuarios u WHERE u.id::text = auth.uid()::text AND u.tipo = 'admin'
-    )
+    public.is_admin()
   );
 
 -- Inserir modelo padrão
 INSERT INTO modelos_contrato (nome, versao, conteudo, ativo) VALUES (
   'Contrato Padrão de Parceria',
   1,
-  E'CONTRATO DE PARCERIA COMERCIAL\n\nPelo presente instrumento particular, de um lado:\n\n**{{nome_empresa}}**, doravante denominada CONTRATANTE;\n\nE de outro lado:\n\n**{{nome_contador}}**, doravante denominado(a) PARCEIRO(A);\n\nResolvem celebrar o presente Contrato de Parceria Comercial, mediante as seguintes cláusulas e condições:\n\n## CLÁUSULA 1ª — DO OBJETO\n\nO presente contrato tem por objeto a parceria comercial para indicação e venda de certificados digitais, onde o(a) PARCEIRO(A) atuará como indicador(a) de clientes para a CONTRATANTE.\n\n## CLÁUSULA 2ª — DA COMISSÃO\n\nA CONTRATANTE pagará ao(à) PARCEIRO(A) uma comissão de **{{percentual_comissao}}%** (por cento) sobre o valor de cada venda realizada através de indicação direta do(a) PARCEIRO(A).\n\n## CLÁUSULA 3ª — DO CUPOM DE DESCONTO\n\nO(A) PARCEIRO(A) receberá um cupom de desconto exclusivo com o código **{{codigo_cupom}}**, que oferece **{{percentual_desconto}}%** de desconto aos clientes indicados.\n\n## CLÁUSULA 4ª — DO PRAZO\n\nO presente contrato terá validade de **{{prazo_validade}}**, podendo ser renovado por acordo mútuo entre as partes.\n\n## CLÁUSULA 5ª — DO PAGAMENTO\n\nAs comissões serão calculadas automaticamente e transferidas via Stripe Connect para a conta cadastrada pelo(a) PARCEIRO(A).\n\n## CLÁUSULA 6ª — DAS OBRIGAÇÕES DO PARCEIRO\n\nO(A) PARCEIRO(A) se compromete a:\na) Indicar clientes de forma ética e transparente;\nb) Não utilizar práticas comerciais enganosas;\nc) Manter seus dados cadastrais atualizados.\n\n## CLÁUSULA 7ª — DA RESCISÃO\n\nO presente contrato poderá ser rescindido por qualquer das partes, mediante comunicação prévia de 30 (trinta) dias.\n\n## CLÁUSULA 8ª — DAS DISPOSIÇÕES GERAIS\n\n{{observacoes}}\n\nData: **{{data_atual}}**\n\nAs partes declaram ter lido e concordado com todos os termos acima.',
+  E'CONTRATO DE PARCERIA COMERCIAL\n\nPelo presente instrumento particular, de um lado:\n\n**{{nome_empresa}}**, doravante denominada CONTRATANTE;\n\nE de outro lado:\n\n**{{nome_contador}}**, doravante denominado(a) PARCEIRO(A);\n\nResolvem celebrar o presente Contrato de Parceria Comercial, mediante as seguintes cláusulas e condições:\n\n## CLÁUSULA 1ª — DO OBJETO\n\nO presente contrato tem por objeto a parceria comercial para indicação e venda de certificados digitais, onde o(a) PARCEIRO(A) atuará como indicador(a) de clientes para a CONTRATANTE.\n\n## CLÁUSULA 2ª — DA COMISSÃO\n\nA CONTRATANTE pagará ao(à) PARCEIRO(A) uma comissão de **{{percentual_comissao}}%** (por cento) sobre o valor de cada venda realizada através de indicação direta do(a) PARCEIRO(A).\n\n## CLÁUSULA 3ª — DO CUPOM DE DESCONTO\n\nO(A) PARCEIRO(A) receberá um cupom de desconto exclusivo com o código **{{codigo_cupom}}**, que oferece **{{percentual_desconto}}%** de desconto aos clientes indicados.\n\n## CLÁUSULA 4ª — DO PRAZO\n\nO presente contrato terá validade de **{{prazo_validade}}**, podendo ser renovado por acordo mútuo entre as partes.\n\n## CLÁUSULA 5ª — DO PAGAMENTO\n\nAs comissões serão calculadas automaticamente a cada venda e ficarão registradas como saldo a receber. O repasse será efetuado via PIX para a chave cadastrada pelo(a) PARCEIRO(A).\n\n## CLÁUSULA 6ª — DAS OBRIGAÇÕES DO PARCEIRO\n\nO(A) PARCEIRO(A) se compromete a:\na) Indicar clientes de forma ética e transparente;\nb) Não utilizar práticas comerciais enganosas;\nc) Manter seus dados cadastrais atualizados.\n\n## CLÁUSULA 7ª — DA RESCISÃO\n\nO presente contrato poderá ser rescindido por qualquer das partes, mediante comunicação prévia de 30 (trinta) dias.\n\n## CLÁUSULA 8ª — DAS DISPOSIÇÕES GERAIS\n\n{{observacoes}}\n\nData: **{{data_atual}}**\n\nAs partes declaram ter lido e concordado com todos os termos acima.',
   true
 );
 
@@ -38,7 +36,7 @@ INSERT INTO modelos_contrato (nome, versao, conteudo, ativo) VALUES (
 -- TABELA: convites_parceria
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS convites_parceria (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email_contador TEXT NOT NULL,
   nome_contador TEXT NOT NULL,
   percentual_comissao NUMERIC(5,2) NOT NULL CHECK (percentual_comissao BETWEEN 1 AND 100),
@@ -66,16 +64,14 @@ ALTER TABLE convites_parceria ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins podem gerenciar convites"
   ON convites_parceria FOR ALL
   USING (
-    EXISTS (
-      SELECT 1 FROM usuarios u WHERE u.id::text = auth.uid()::text AND u.tipo = 'admin'
-    )
+    public.is_admin()
   );
 
 -- =============================================================================
 -- TABELA: assinaturas_contrato
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS assinaturas_contrato (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   convite_id UUID NOT NULL REFERENCES convites_parceria(id),
   contador_parceiro_id UUID REFERENCES contadores_parceiros(id),
   nome_completo TEXT NOT NULL,
@@ -105,16 +101,14 @@ CREATE POLICY "Contadores podem ver suas assinaturas"
 CREATE POLICY "Admins podem ver todas as assinaturas"
   ON assinaturas_contrato FOR ALL
   USING (
-    EXISTS (
-      SELECT 1 FROM usuarios u WHERE u.id::text = auth.uid()::text AND u.tipo = 'admin'
-    )
+    public.is_admin()
   );
 
 -- =============================================================================
 -- TABELA: solicitacoes_parceria
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS solicitacoes_parceria (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome TEXT NOT NULL,
   email TEXT NOT NULL,
   cpf TEXT NOT NULL,
@@ -137,7 +131,5 @@ ALTER TABLE solicitacoes_parceria ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins podem gerenciar solicitacoes"
   ON solicitacoes_parceria FOR ALL
   USING (
-    EXISTS (
-      SELECT 1 FROM usuarios u WHERE u.id::text = auth.uid()::text AND u.tipo = 'admin'
-    )
+    public.is_admin()
   );

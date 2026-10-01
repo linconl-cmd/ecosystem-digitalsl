@@ -12,6 +12,8 @@ export const cpfOuCnpjSchema = z.string().refine(
   { message: 'CPF ou CNPJ inválido' }
 )
 
+export const periodoMesesSchema = z.union([z.literal(12), z.literal(24)])
+
 // Usuarios
 export const criarUsuarioSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
@@ -21,19 +23,6 @@ export const criarUsuarioSchema = z.object({
   tipo: z.enum(['cliente', 'contador', 'admin']).default('cliente'),
   contador_indicador_id: z.string().uuid().nullable().optional(),
 })
-
-// Produtos
-export const criarProdutoSchema = z.object({
-  nome: z.string().min(2, 'Nome do produto é obrigatório'),
-  descricao: z.string().nullable().optional(),
-  preco: z.number().positive('Preço deve ser positivo'),
-  validade_meses: z.number().int().positive('Validade deve ser positiva'),
-  imagem_url: z.string().url().nullable().optional(),
-  ativo: z.boolean().default(true),
-  stripe_price_id: z.string().nullable().optional(),
-})
-
-export const atualizarProdutoSchema = criarProdutoSchema.partial()
 
 // Cupons
 export const criarCupomSchema = z.object({
@@ -49,6 +38,7 @@ export const criarCupomSchema = z.object({
 export const criarPedidoSchema = z.object({
   usuario_id: z.string().uuid(),
   produto_id: z.string().uuid(),
+  periodo_meses: periodoMesesSchema.default(12),
   contador_id: z.string().uuid().nullable().optional(),
   cupom_id: z.string().uuid().nullable().optional(),
   valor_bruto: z.number().positive(),
@@ -57,7 +47,7 @@ export const criarPedidoSchema = z.object({
   comissao_percentual: z.number().min(0).max(100).default(0),
   comissao_valor: z.number().min(0).default(0),
   valor_liquido: z.number().positive(),
-  stripe_session_id: z.string().nullable().optional(),
+  sicoob_txid: z.string().nullable().optional(),
 })
 
 // Agendamentos
@@ -111,6 +101,11 @@ export const moverPipelineSchema = z.object({
   criado_por: z.string().uuid().nullable().optional(),
 })
 
+// Repasse de comissão
+export const criarRepasseSchema = z.object({
+  contador_id: z.string().uuid(),
+})
+
 // Correções
 export const criarCorrecaoSchema = z.object({
   pedido_id: z.string().uuid(),
@@ -151,6 +146,7 @@ export const solicitarParceriaSchema = z.object({
 // Checkout
 export const criarCheckoutSchema = z.object({
   produto_id: z.string().uuid(),
+  periodo_meses: periodoMesesSchema.default(12),
   cupom_codigo: z.string().optional(),
   dados_cliente: z.object({
     nome: z.string().min(2),

@@ -23,6 +23,15 @@ export function formatarCpfOuCnpj(valor: string): string {
   return valor
 }
 
+// Comissão só é registrada em ledger (o repasse é feito depois via Pix), então
+// o cálculo é em reais com arredondamento de centavos.
+export function calcularSplit(valorPago: number, percentualComissao: number) {
+  const comissaoValor = Math.round(valorPago * percentualComissao) / 100
+  const liquidoValor = Math.round((valorPago - comissaoValor) * 100) / 100
+
+  return { comissaoValor, liquidoValor }
+}
+
 export function erroApi(mensagem: string, status = 400) {
   return NextResponse.json({ erro: mensagem }, { status })
 }

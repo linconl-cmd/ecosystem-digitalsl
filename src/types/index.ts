@@ -25,6 +25,8 @@ export type StatusSolicitacao = 'aguardando' | 'aprovado' | 'recusado'
 
 export type TipoCorrecao = 'estorno_total'
 
+export type StatusRepasse = 'pendente' | 'processando' | 'concluido' | 'falhou'
+
 export interface Usuario {
   id: string
   nome: string
@@ -36,16 +38,25 @@ export interface Usuario {
   created_at: string
 }
 
+// Tabela `products` compartilhada com o site da loja (colunas em inglês)
+export type PeriodoMeses = 12 | 24
+
 export interface Produto {
   id: string
-  nome: string
-  descricao: string | null
-  preco: number
-  validade_meses: number
-  imagem_url: string | null
-  ativo: boolean
-  stripe_price_id: string | null
+  name: string
+  description: string
+  price: number
+  original_price: number | null
+  icon: string
+  active: boolean
+  has_periods: boolean
+  price_12m: number | null
+  original_price_12m: number | null
+  price_24m: number | null
+  original_price_24m: number | null
+  sort_order: number
   created_at: string
+  updated_at: string
 }
 
 export interface Cupom {
@@ -67,12 +78,24 @@ export interface ContadorParceiro {
   percentual_desconto_cupom: number
   chave_pix: string | null
   dados_bancarios: Record<string, unknown> | null
-  stripe_account_id: string | null
   cupom_id: string | null
   total_vendas: number
   total_comissoes: number
+  total_repassado: number
   ativo: boolean
   created_at: string
+}
+
+export interface RepasseComissao {
+  id: string
+  contador_id: string
+  valor: number
+  status: StatusRepasse
+  sicoob_transacao_id: string | null
+  erro: string | null
+  criado_por: string | null
+  criado_em: string
+  processado_em: string | null
 }
 
 export interface Pedido {
@@ -87,10 +110,12 @@ export interface Pedido {
   comissao_percentual: number
   comissao_valor: number
   valor_liquido: number
+  periodo_meses: PeriodoMeses
   status_pagamento: StatusPagamento
   etapa_atual: EtapaCodigo | null
-  stripe_session_id: string | null
-  stripe_payment_id: string | null
+  sicoob_txid: string | null
+  sicoob_e2e_id: string | null
+  pix_copia_e_cola: string | null
   tem_correcao_pendente: boolean
   novo_pedido_id: string | null
   created_at: string
@@ -169,9 +194,9 @@ export interface CorrecaoPedido {
   tipo: TipoCorrecao
   motivo: string
   dados_anteriores: Record<string, unknown>
-  stripe_refund_id: string | null
+  sicoob_devolucao_id: string | null
   valor_estornado: number
-  nova_session_id: string | null
+  novo_txid: string | null
   criado_por: string | null
   created_at: string
 }

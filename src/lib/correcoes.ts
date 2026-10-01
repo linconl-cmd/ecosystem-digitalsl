@@ -1,9 +1,10 @@
 import { createAdminClient } from '@/lib/supabase'
-import { stripe, paraCentavos } from '@/lib/stripe'
+import { criarCobrancaPix, devolverPix } from '@/lib/sicoob'
 import { moverPipeline } from '@/lib/pipeline'
+import { calcularSplit } from '@/lib/utils'
 import {
   enviarComprovanteEstorno,
-  enviarNovoLinkPagamento,
+  enviarNovaCobrancaPix,
 } from '@/lib/email'
 
 export async function estornarEReemitir(params: {
@@ -16,7 +17,7 @@ export async function estornarEReemitir(params: {
 
   const { data: pedido, error: erroPedido } = await supabase
     .from('pedidos')
-    .select('*, usuarios!pedidos_usuario_id_fkey(nome, email), produtos!pedidos_produto_id_fkey(nome, preco, stripe_price_id)')
+    .select('*, usuarios!pedidos_usuario_id_fkey(nome, email, cpf_cnpj)')
     .eq('id', pedidoId)
     .single()
 
@@ -28,40 +29,42 @@ export async function estornarEReemitir(params: {
     throw new Error('Só é possível estornar pedidos com status pago')
   }
 
-  if (!pedido.stripe_payment_id) {
-    throw new Error('Pedido sem payment_id do Stripe')
+  if (!pedido.sicoob_e2e_id) {
+    throw new Error('Pedido sem e2eId do Pix — não é possível devolver o pagamento')
   }
 
-  // 1. Estorno no Stripe
-  const refund = await stripe.refunds.create({
-    payment_intent: pedido.stripe_payment_id,
-    reason: 'requested_by_customer',
-  })
+  const usuario = pedido.usuarios as { nome: string; email: string; cpf_cnpj: string }
+
+  // 1. Devolução total do Pix na Sicoob
+  const devolucao = await devolverPix({ e2eId: pedido.sicoob_e2e_id, valor: pedido.valor_pago })
 
   // 2. Salvar correção
-  const dadosAnteriores = {
-    status_pagamento: pedido.status_pagamento,
-    etapa_atual: pedido.etapa_atual,
-    valor_pago: pedido.valor_pago,
+  const { data: correcao, error: erroCorrecao } = await supabase
+    .from('correcoes_pedido')
+    .insert({
+      pedido_id: pedidoId,
+      tipo: 'estorno_total',
+      motivo,
+      dados_anteriores: {
+        status_pagamento: pedido.status_pagamento,
+        etapa_atual: pedido.etapa_atual,
+        valor_pago: pedido.valor_pago,
+      },
+      sicoob_devolucao_id: devolucao.id,
+      valor_estornado: pedido.valor_pago,
+      criado_por: criadoPor ?? null,
+    })
+    .select()
+    .single()
+
+  if (erroCorrecao || !correcao) {
+    throw new Error(`Erro ao registrar correção: ${erroCorrecao?.message}`)
   }
 
-  await supabase.from('correcoes_pedido').insert({
-    pedido_id: pedidoId,
-    tipo: 'estorno_total',
-    motivo,
-    dados_anteriores: dadosAnteriores,
-    stripe_refund_id: refund.id,
-    valor_estornado: pedido.valor_pago,
-    criado_por: criadoPor ?? null,
-  })
-
-  // 3. Atualizar pedido
+  // 3. Atualizar pedido original
   await supabase
     .from('pedidos')
-    .update({
-      status_pagamento: 'estornado',
-      tem_correcao_pendente: true,
-    })
+    .update({ status_pagamento: 'estornado', tem_correcao_pendente: true })
     .eq('id', pedidoId)
 
   // 4. Cancelar certificado
@@ -70,7 +73,7 @@ export async function estornarEReemitir(params: {
     .update({ status: 'cancelado' })
     .eq('pedido_id', pedidoId)
 
-  // 5. Mover pipeline para CANCELADO
+  // 5. Mover pipeline do pedido original para CANCELADO
   await moverPipeline({
     pedidoId,
     etapaCodigo: 'CANCELADO',
@@ -78,64 +81,62 @@ export async function estornarEReemitir(params: {
     criadoPor,
   })
 
-  // 6. Criar nova sessão de checkout
-  const usuario = pedido.usuarios as { nome: string; email: string }
-  const produto = pedido.produtos as { nome: string; preco: number; stripe_price_id: string | null }
+  // 6. Novo pedido (mantém o snapshot de comissão do contador, se houver)
+  const { comissaoValor, liquidoValor } = calcularSplit(pedido.valor_pago, pedido.comissao_percentual)
 
-  const sessionParams: Record<string, unknown> = {
-    mode: 'payment',
-    line_items: [{
-      price_data: {
-        currency: 'brl',
-        product_data: { name: produto.nome },
-        unit_amount: paraCentavos(produto.preco),
-      },
-      quantity: 1,
-    }],
-    customer_email: usuario.email,
-    expires_at: Math.floor(Date.now() / 1000) + 86400,
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/sucesso?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancelado`,
-    metadata: {
-      pedido_original_id: pedidoId,
+  const { data: novoPedido, error: erroNovoPedido } = await supabase
+    .from('pedidos')
+    .insert({
       usuario_id: pedido.usuario_id,
       produto_id: pedido.produto_id,
-    },
+      periodo_meses: pedido.periodo_meses,
+      contador_id: pedido.contador_id,
+      cupom_id: pedido.cupom_id,
+      valor_bruto: pedido.valor_bruto,
+      valor_desconto: pedido.valor_desconto,
+      valor_pago: pedido.valor_pago,
+      comissao_percentual: pedido.comissao_percentual,
+      comissao_valor: comissaoValor,
+      valor_liquido: liquidoValor,
+      status_pagamento: 'aguardando',
+    })
+    .select()
+    .single()
+
+  if (erroNovoPedido || !novoPedido) {
+    throw new Error(`Erro ao criar novo pedido: ${erroNovoPedido?.message}`)
   }
 
-  // Manter split do contador se existir
-  if (pedido.contador_id) {
-    const { data: contador } = await supabase
-      .from('contadores_parceiros')
-      .select('stripe_account_id, percentual_comissao')
-      .eq('id', pedido.contador_id)
-      .single()
+  await supabase
+    .from('pedidos')
+    .update({ novo_pedido_id: novoPedido.id })
+    .eq('id', pedidoId)
 
-    if (contador?.stripe_account_id) {
-      const comissaoCentavos = Math.round(paraCentavos(produto.preco) * contador.percentual_comissao / 100)
-      sessionParams.payment_intent_data = {
-        transfer_data: {
-          destination: contador.stripe_account_id,
-          amount: comissaoCentavos,
-        },
-      }
-    }
-  }
+  await moverPipeline({
+    pedidoId: novoPedido.id,
+    etapaCodigo: 'AGUARDANDO_PAGAMENTO',
+    observacao: 'Pedido gerado após estorno do pedido anterior',
+    criadoPor,
+  })
 
-  const session = await stripe.checkout.sessions.create(
-    sessionParams as Parameters<typeof stripe.checkout.sessions.create>[0]
-  )
+  // 7. Nova cobrança Pix (expira em 24h)
+  const cobranca = await criarCobrancaPix({
+    pedidoId: novoPedido.id,
+    valor: pedido.valor_pago,
+    devedor: { nome: usuario.nome, cpfCnpj: usuario.cpf_cnpj },
+  })
 
-  // 7. Atualizar pedido com nova session
+  await supabase
+    .from('pedidos')
+    .update({ sicoob_txid: cobranca.txid, pix_copia_e_cola: cobranca.pixCopiaECola })
+    .eq('id', novoPedido.id)
+
   await supabase
     .from('correcoes_pedido')
-    .update({ nova_session_id: session.id })
-    .eq('pedido_id', pedidoId)
-    .eq('tipo', 'estorno_total')
-    .order('created_at', { ascending: false })
-    .limit(1)
+    .update({ novo_txid: cobranca.txid })
+    .eq('id', correcao.id)
 
-  // 8. Enviar e-mails
+  // 8. E-mails ao cliente
   await enviarComprovanteEstorno({
     email: usuario.email,
     nomeCliente: usuario.nome,
@@ -143,15 +144,15 @@ export async function estornarEReemitir(params: {
     motivo,
   })
 
-  await enviarNovoLinkPagamento({
+  await enviarNovaCobrancaPix({
     email: usuario.email,
     nomeCliente: usuario.nome,
-    checkoutUrl: session.url!,
+    pixCopiaECola: cobranca.pixCopiaECola,
   })
 
   return {
-    refundId: refund.id,
-    novaSessionId: session.id,
-    checkoutUrl: session.url,
+    devolucaoId: devolucao.id,
+    novoPedidoId: novoPedido.id,
+    pixCopiaECola: cobranca.pixCopiaECola,
   }
 }

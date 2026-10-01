@@ -89,29 +89,27 @@ export async function enviarComprovanteEstorno(params: {
       <h2>Olá, ${nomeCliente}!</h2>
       <p>Informamos que seu pagamento de <strong>R$ ${valorEstornado.toFixed(2)}</strong> foi estornado.</p>
       <p><strong>Motivo:</strong> ${motivo}</p>
-      <p>O valor será devolvido conforme o prazo da sua operadora de cartão.</p>
+      <p>O valor foi devolvido via Pix para a conta de origem do pagamento.</p>
     `,
   })
 }
 
-export async function enviarNovoLinkPagamento(params: {
+export async function enviarNovaCobrancaPix(params: {
   email: string
   nomeCliente: string
-  checkoutUrl: string
+  pixCopiaECola: string
 }) {
-  const { email, nomeCliente, checkoutUrl } = params
+  const { email, nomeCliente, pixCopiaECola } = params
 
   await resend.emails.send({
     from: `${appName} <${from}>`,
     to: email,
-    subject: 'Novo link de pagamento',
+    subject: 'Nova cobrança Pix',
     html: `
       <h2>Olá, ${nomeCliente}!</h2>
-      <p>Um novo link de pagamento foi gerado para você.</p>
-      <p><a href="${checkoutUrl}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">Realizar pagamento</a></p>
-      <p>Este link expira em 24 horas.</p>
-      <p>Se o botão não funcionar, copie e cole este link no navegador:</p>
-      <p>${checkoutUrl}</p>
+      <p>Uma nova cobrança Pix foi gerada para você. Copie o código abaixo e cole no aplicativo do seu banco, na opção Pix Copia e Cola.</p>
+      <p style="word-break:break-all;background:#f3f4f6;padding:12px;border-radius:6px;font-family:monospace;">${pixCopiaECola}</p>
+      <p>Esta cobrança expira em 24 horas.</p>
     `,
   })
 }

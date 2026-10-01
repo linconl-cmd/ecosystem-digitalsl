@@ -7,7 +7,7 @@
 -- TABELA: etapas_pipeline
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS etapas_pipeline (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   codigo TEXT UNIQUE NOT NULL,
   nome TEXT NOT NULL,
   descricao TEXT,
@@ -27,9 +27,7 @@ CREATE POLICY "Etapas sao publicas para leitura"
 CREATE POLICY "Admins podem gerenciar etapas"
   ON etapas_pipeline FOR ALL
   USING (
-    EXISTS (
-      SELECT 1 FROM usuarios u WHERE u.id::text = auth.uid()::text AND u.tipo = 'admin'
-    )
+    public.is_admin()
   );
 
 -- Inserir etapas padrão
@@ -54,7 +52,7 @@ ALTER TABLE pedidos
 -- TABELA: pedido_pipeline (histórico imutável)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS pedido_pipeline (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   pedido_id UUID NOT NULL REFERENCES pedidos(id),
   etapa_codigo TEXT NOT NULL REFERENCES etapas_pipeline(codigo),
   observacao TEXT,
@@ -70,17 +68,13 @@ ALTER TABLE pedido_pipeline ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins podem ver historico do pipeline"
   ON pedido_pipeline FOR SELECT
   USING (
-    EXISTS (
-      SELECT 1 FROM usuarios u WHERE u.id::text = auth.uid()::text AND u.tipo = 'admin'
-    )
+    public.is_admin()
   );
 
 CREATE POLICY "Admins podem inserir no pipeline"
   ON pedido_pipeline FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM usuarios u WHERE u.id::text = auth.uid()::text AND u.tipo = 'admin'
-    )
+    public.is_admin()
   );
 
 -- =============================================================================
@@ -111,7 +105,7 @@ SELECT
   p.id,
   u.nome AS usuario_nome,
   u.email AS usuario_email,
-  pr.nome AS produto_nome,
+  pr.name AS produto_nome,
   p.valor_pago,
   p.status_pagamento,
   p.etapa_atual,
@@ -131,7 +125,7 @@ SELECT
   p.created_at
 FROM pedidos p
   JOIN usuarios u ON p.usuario_id = u.id
-  JOIN produtos pr ON p.produto_id = pr.id
+  JOIN products pr ON p.produto_id = pr.id
   LEFT JOIN etapas_pipeline ep ON p.etapa_atual = ep.codigo
   LEFT JOIN contadores_parceiros cp ON p.contador_id = cp.id
   LEFT JOIN usuarios uc ON cp.usuario_id = uc.id

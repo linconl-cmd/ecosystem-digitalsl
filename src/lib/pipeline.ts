@@ -67,16 +67,17 @@ export async function moverPipeline(params: {
 
 export async function registrarPagamentoConfirmado(params: {
   pedidoId: string
-  stripePaymentId: string
+  e2eId: string | null
 }) {
-  const { pedidoId, stripePaymentId } = params
+  const { pedidoId, e2eId } = params
   const supabase = createAdminClient()
 
+  // O e2eId identifica o Pix recebido e é o que permite devolvê-lo depois (estorno)
   const { error } = await supabase
     .from('pedidos')
     .update({
       status_pagamento: 'pago',
-      stripe_payment_id: stripePaymentId,
+      sicoob_e2e_id: e2eId,
     })
     .eq('id', pedidoId)
 
@@ -87,7 +88,7 @@ export async function registrarPagamentoConfirmado(params: {
   await moverPipeline({
     pedidoId,
     etapaCodigo: 'PAGO_AGUARDANDO_ATENDIMENTO',
-    observacao: 'Pagamento confirmado via Stripe',
+    observacao: 'Pagamento confirmado via Pix (Sicoob)',
   })
 }
 
