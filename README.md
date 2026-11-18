@@ -37,6 +37,7 @@ Execute os scripts SQL no Supabase SQL Editor na seguinte ordem:
 4. `supabase_parcerias.sql` — Sistema de parcerias
 5. `supabase_repasses.sql` — Repasse automático de comissão via Sicoob
 6. `supabase_dados_loja.sql` — Produtos e configurações atuais da loja (exportados do banco antigo)
+7. `supabase_downloads.sql` — Tabela de downloads da loja (Emissor e drivers, só links do Drive)
 
 ### 3.1 Criar o usuário admin
 
